@@ -1,0 +1,38 @@
+# Traffic Load Generator for Stress Testing php-cpa and php-hpa
+# Based on Listing 10 of MDPI Mathematics 2023 paper
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+  labels:
+    app: load-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-generator
+  template:
+    metadata:
+      name: load-generator
+      labels:
+        app: load-generator
+    spec:
+      containers:
+        - name: load-generator
+          image: busybox:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting traffic generation against php-cpa and php-hpa..."
+              while true; do
+                wget -q -O- http://php-cpa:80 > /dev/null 2>&1
+                wget -q -O- http://php-hpa:80 > /dev/null 2>&1
+                usleep 10000
+              done
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi

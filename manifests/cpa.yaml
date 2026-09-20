@@ -1,0 +1,35 @@
+# Custom Pod Autoscaler CRD Manifest for Proactive Autoscaling
+# Based on Listing 16 of MDPI Mathematics 2023 paper
+apiVersion: custompodautoscaler.com/v1
+kind: CustomPodAutoscaler
+metadata:
+  name: k8s-metrics-cpu
+spec:
+  minReplicas: 1
+  maxReplicas: 20
+  template:
+    spec:
+      containers:
+        - name: k8s-metrics-cpu
+          image: k8s-metrics-cpu:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TARGET_CPU_UTILIZATION
+              value: "50"
+            - name: METRICS_DB_PATH
+              value: "/tmp/metrics.db"
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: php-cpa
+  roleRequiresMetricsServer: true
+  config:
+    - name: interval
+      value: "10000"
+    - name: downscaleStabilization
+      value: "60"
+    - name: minReplicas
+      value: "1"
+    - name: maxReplicas
+      value: "20"
+

@@ -1,0 +1,46 @@
+# Target PHP Apache Application for Baseline Reactive HPA
+# Identical resources and configuration as php-cpa for fair comparative evaluation
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-hpa
+  labels:
+    app: php-hpa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: php-hpa
+  template:
+    metadata:
+      name: php-hpa
+      labels:
+        app: php-hpa
+    spec:
+      containers:
+        - name: php-hpa
+          image: registry.k8s.io/hpa-example
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-hpa
+  labels:
+    app: php-hpa
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: php-hpa
+  type: ClusterIP

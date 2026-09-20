@@ -1,0 +1,46 @@
+# Target PHP Apache Application for Proactive CPA
+# Performs floating point math loops to generate CPU stress load
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-cpa
+  labels:
+    app: php-cpa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: php-cpa
+  template:
+    metadata:
+      name: php-cpa
+      labels:
+        app: php-cpa
+    spec:
+      containers:
+        - name: php-cpa
+          image: registry.k8s.io/hpa-example
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-cpa
+  labels:
+    app: php-cpa
+spec:
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: php-cpa
+  type: ClusterIP
