@@ -23,12 +23,11 @@ from torch.utils.data import TensorDataset, DataLoader
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from data.dataset_loader import WorkloadDataLoader
-from data.generate_synthetic_trace import generate_multiple_machine_traces
 from model.gru_model import GRUWorkloadPredictor, export_model_to_torchscript, export_model_to_onnx
 
 
 def train_gru_model(
-    dataset_path: str = "data/sample_cluster_data.csv",
+    dataset_path: str = "data/borg_processed_timeseries.csv",
     output_dir: str = "model/saved_models",
     window_size: int = 24,
     epochs: int = 50,
@@ -41,10 +40,13 @@ def train_gru_model(
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    # 1. Check / Generate Dataset
+    # 1. Check Dataset
     if not os.path.exists(dataset_path):
-        print(f"Dataset not found at '{dataset_path}'. Generating synthetic trace...")
-        generate_multiple_machine_traces(n_machines=10, output_path=dataset_path)
+        fallback = "data/borg_processed_timeseries.csv"
+        if os.path.exists(fallback):
+            dataset_path = fallback
+        else:
+            raise FileNotFoundError(f"Dataset not found at '{dataset_path}'")
 
     # 2. Data Loading & Preprocessing
     loader = WorkloadDataLoader(window_size=window_size, target_col="cpu_rate")

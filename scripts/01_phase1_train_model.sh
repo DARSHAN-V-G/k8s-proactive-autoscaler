@@ -29,8 +29,10 @@ PYTHON_CMD=$(command -v python3 || command -v python)
 echo -e "\n${GREEN}[Step 1/5]${NC} Installing Python Dependencies..."
 $PYTHON_CMD -m pip install -r requirements.txt --quiet
 
-echo -e "\n${GREEN}[Step 2/5]${NC} Generating Synthetic Borg Workload Trace..."
-$PYTHON_CMD data/generate_synthetic_trace.py --machines 10 --points 8352 --interval 300
+echo -e "\n${GREEN}[Step 2/5]${NC} Verifying / Processing Google Borg Workload Trace..."
+if [ -f "data/borg_traces_data.csv" ] && [ ! -f "data/borg_processed_timeseries.csv" ]; then
+    $PYTHON_CMD data/preprocess_borg_traces.py
+fi
 
 echo -e "\n${GREEN}[Step 3/5]${NC} Training 24-Step GRU Neural Network on CPU..."
 $PYTHON_CMD model/train.py --epochs 30 --batch_size 64 --lr 0.001

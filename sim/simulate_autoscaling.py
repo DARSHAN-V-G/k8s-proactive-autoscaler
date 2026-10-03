@@ -23,8 +23,9 @@ root_dir = os.path.abspath(os.path.join(current_dir, ".."))
 sys.path.insert(0, os.path.join(root_dir, "k8s-metrics-cpu"))
 sys.path.insert(0, root_dir)
 
-from data.generate_synthetic_trace import generate_workload_trace
+# pyrefly: ignore [missing-import]
 from db import MetricsDatabase
+# pyrefly: ignore [missing-import]
 from evaluate import evaluate_scaling
 
 
@@ -210,22 +211,37 @@ class AutoscalingSimulator:
         return report
 
 
+def load_workload_trace(
+    n_points: int = 200,
+    dataset_path: str = "data/borg_processed_timeseries.csv"
+) -> np.ndarray:
+    """Loads CPU trace from real Borg dataset or generates fallback trace."""
+    if os.path.exists(dataset_path):
+        print(f"Loading real Google Borg workload trace from {dataset_path}...")
+        df = pd.read_csv(dataset_path)
+        col = "cpu_rate" if "cpu_rate" in df.columns else ("cpu_utilization" if "cpu_utilization" in df.columns else df.columns[-1])
+        series = df[col].values
+        # Take a dynamic 200-point slice containing active load changes
+        start = min(500, len(series) - n_points)
+        segment = series[start:start + n_points].astype(float)
+        if np.max(segment) <= 1.0:
+            segment = segment * 100.0
+        return segment
+    else:
+        print("Borg dataset not found; generating realistic wave with spikes...")
+        t = np.linspace(0, 4 * np.pi, n_points)
+        base = 30.0 + 20.0 * np.sin(t)
+        base[40:55] += 35.0
+        base[120:135] += 40.0
+        return np.clip(base, 5.0, 95.0)
+
+
 def run_simulation(
     n_points: int = 200,
     step_sec: int = 10,
     output_path: str = "docs/plots/scaling_comparison.png"
 ):
-    print("Generating simulated cluster workload trace with sudden burst spikes...")
-    trace_df = generate_workload_trace(
-        n_points=n_points,
-        interval_sec=step_sec,
-        base_load=0.30,
-        diurnal_amp=0.20,
-        noise_std=0.02,
-        n_spikes=3,
-        spike_amp_range=(0.4, 0.6)
-    )
-    cpu_stream = trace_df["cpu_rate"].values * 100.0
+    cpu_stream = load_workload_trace(n_points=n_points)
 
     print(f"Running autoscaling simulation across {n_points} time steps...")
     sim = AutoscalingSimulator(target_cpu_threshold=50.0)

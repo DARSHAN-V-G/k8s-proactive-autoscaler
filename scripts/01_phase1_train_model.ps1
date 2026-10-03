@@ -17,8 +17,10 @@ if (Test-Path "$RepoRoot\.venv\Scripts\python.exe") {
 Write-Host "`n[Step 1/5] Installing Python Dependencies..." -ForegroundColor Green
 & $PythonCmd -m pip install -r requirements.txt --quiet
 
-Write-Host "`n[Step 2/5] Generating Synthetic Borg Workload Trace..." -ForegroundColor Green
-& $PythonCmd data/generate_synthetic_trace.py --machines 10 --points 8352 --interval 300
+Write-Host "`n[Step 2/5] Verifying / Processing Google Borg Workload Trace..." -ForegroundColor Green
+if ((Test-Path "data/borg_traces_data.csv") -and (-not (Test-Path "data/borg_processed_timeseries.csv"))) {
+    & $PythonCmd data/preprocess_borg_traces.py
+}
 
 Write-Host "`n[Step 3/5] Training 24-Step GRU Neural Network on CPU..." -ForegroundColor Green
 & $PythonCmd model/train.py --epochs 30 --batch_size 64 --lr 0.001

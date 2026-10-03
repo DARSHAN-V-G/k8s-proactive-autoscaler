@@ -24,7 +24,6 @@ from torch.utils.data import TensorDataset, DataLoader
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from data.dataset_loader import WorkloadDataLoader
-from data.generate_synthetic_trace import generate_multiple_machine_traces
 from model.gru_model import GRUWorkloadPredictor, GRUInferenceEngine, export_model_to_torchscript
 from model.baseline_models import LSTMWorkloadPredictor, BiLSTMWorkloadPredictor, ARIMAPredictor
 
@@ -52,7 +51,11 @@ def evaluate_all_models(
     test_samples_cap: int = 500
 ):
     if not os.path.exists(dataset_path):
-        generate_multiple_machine_traces(n_machines=5, output_path=dataset_path)
+        fallback = "data/borg_processed_timeseries.csv"
+        if os.path.exists(fallback):
+            dataset_path = fallback
+        else:
+            raise FileNotFoundError(f"Dataset not found at '{dataset_path}'")
 
     loader = WorkloadDataLoader(window_size=window_size)
     X_train, y_train, X_val, y_val, X_test, y_test = loader.load_and_preprocess_csv(dataset_path)
@@ -176,6 +179,23 @@ def evaluate_all_models(
     print("=" * 90)
     print(df_res.to_string(index=False))
     print("=" * 90)
+
+    # Save results to docs/evaluation_results.csv and docs/evaluation_results.md
+    os.makedirs("docs", exist_ok=True)
+    csv_path = "docs/evaluation_results.csv"
+    md_path = "docs/evaluation_results.md"
+    df_res.to_csv(csv_path, index=False)
+    try:
+        with open(md_path, "w") as f:
+            f.write("# Empirical Evaluation Results (Table 3 Replication)\n\n")
+            f.write(df_res.to_markdown(index=False))
+            f.write("\n")
+    except Exception:
+        with open(md_path, "w") as f:
+            f.write("# Empirical Evaluation Results (Table 3 Replication)\n\n")
+            f.write(df_res.to_string(index=False))
+            f.write("\n")
+    print(f"\nSaved benchmark results to:\n - {csv_path}\n - {md_path}")
     return df_res
 
 

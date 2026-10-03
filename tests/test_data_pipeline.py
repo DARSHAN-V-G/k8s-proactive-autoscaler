@@ -1,22 +1,18 @@
-"""
-Unit tests for data generation and preprocessing pipeline.
-"""
-
 import os
 import tempfile
 import numpy as np
+import pandas as pd
 import pytest
-from data.generate_synthetic_trace import generate_workload_trace, generate_multiple_machine_traces
 from data.dataset_loader import WorkloadDataLoader
 
 
-def test_generate_workload_trace():
-    df = generate_workload_trace(n_points=100, interval_sec=300, seed=42)
-    assert len(df) == 100
+def test_borg_dataset_loader():
+    borg_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "borg_processed_timeseries.csv"))
+    assert os.path.exists(borg_path), f"Processed Borg dataset not found at {borg_path}"
+    df = pd.read_csv(borg_path)
+    assert len(df) >= 100
     assert "cpu_rate" in df.columns
-    assert "memory_rate" in df.columns
     assert (df["cpu_rate"] >= 0.0).all() and (df["cpu_rate"] <= 1.0).all()
-    assert (df["memory_rate"] >= 0.0).all() and (df["memory_rate"] <= 1.0).all()
 
 
 def test_sliding_window_dimensions():
@@ -55,7 +51,8 @@ def test_scaler_persistence():
 def test_train_val_test_split():
     with tempfile.TemporaryDirectory() as tmpdir:
         csv_file = os.path.join(tmpdir, "test_cluster.csv")
-        generate_multiple_machine_traces(n_machines=2, n_points=500, output_path=csv_file)
+        df = pd.DataFrame({"cpu_rate": np.linspace(0.1, 0.9, 500)})
+        df.to_csv(csv_file, index=False)
 
         loader = WorkloadDataLoader(window_size=24)
         X_train, y_train, X_val, y_val, X_test, y_test = loader.load_and_preprocess_csv(csv_file)

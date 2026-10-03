@@ -1,0 +1,7 @@
+# Empirical Evaluation Results (Table 3 Replication)
+
+         Model Step Size     MSE    RMSE     MAE      R2 Training Time (s) Prediction Latency (ms)
+GRU (Proposed)  24 Steps 0.03142 0.17726 0.11715  0.5703             13.27                    0.03
+          LSTM  24 Steps 0.03117 0.17655 0.11870  0.5737              6.90                    0.04
+        BiLSTM  24 Steps 0.03076 0.17539 0.11692  0.5793             21.81                    0.06
+         ARIMA         - 0.03578 0.18916 0.11280 -0.6508                 -                  262.70
