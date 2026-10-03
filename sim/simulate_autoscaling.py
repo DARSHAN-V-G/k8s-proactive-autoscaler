@@ -64,7 +64,7 @@ class AutoscalingSimulator:
             cpa_ready_replicas = [1] * n_steps
             cpa_pending_queue = [] # (scheduled_step, new_replicas)
             cpa_predicted_cpu = []
-            cpa_last_scale_down_step = -100
+            cpa_recent_desires = [] # for stabilization window
 
             # State tracking: Reactive HPA
             hpa_desired_replicas = []
@@ -115,17 +115,19 @@ class AutoscalingSimulator:
                 pred_cpu = eval_res.get("pre_u") or current_cpu
                 cpa_predicted_cpu.append(pred_cpu)
 
-                # CPA Stabilization
+                # CPA Stabilization (matching Kubernetes downscaleStabilization)
+                raw_cpa_tar = min(self.max_replicas, max(self.min_replicas, raw_cpa_tar))
+                cpa_recent_desires.append(raw_cpa_tar)
+                if len(cpa_recent_desires) > self.stabilization_window:
+                    cpa_recent_desires.pop(0)
+
                 if raw_cpa_tar > cur_cpa_pods:
-                    des_cpa = min(self.max_replicas, max(self.min_replicas, raw_cpa_tar))
+                    des_cpa = raw_cpa_tar
                     cpa_pending_queue.append((t, des_cpa))
                 elif raw_cpa_tar < cur_cpa_pods:
-                    if t - cpa_last_scale_down_step >= self.stabilization_window:
-                        des_cpa = min(self.max_replicas, max(self.min_replicas, raw_cpa_tar))
-                        cpa_last_scale_down_step = t
+                    des_cpa = max(cpa_recent_desires)
+                    if des_cpa < cur_cpa_pods:
                         cpa_pending_queue.append((t, des_cpa))
-                    else:
-                        des_cpa = cur_cpa_pods
                 else:
                     des_cpa = cur_cpa_pods
 

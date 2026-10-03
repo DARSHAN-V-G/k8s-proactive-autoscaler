@@ -11,57 +11,73 @@ Adheres to the architecture in MDPI Mathematics 2023 paper:
 import os
 import json
 import numpy as np
-import torch
-import torch.nn as nn
 from typing import Optional, Union
 
-
-class GRUWorkloadPredictor(nn.Module):
-    """
-    GRU neural network model for Kubernetes CPU load forecasting.
-    Architecture:
-      Input (Batch, 24, 1) -> GRU (50 units) -> ReLU -> Linear(50, 1) -> Output (Batch, 1)
-    """
-    def __init__(self, input_dim: int = 1, hidden_dim: int = 50, output_dim: int = 1):
-        super(GRUWorkloadPredictor, self).__init__()
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.output_dim = output_dim
-        self.gru = nn.GRU(
-            input_size=input_dim,
-            hidden_size=hidden_dim,
-            num_layers=1,
-            batch_first=True
-        )
-        self.relu = nn.ReLU()
-        self.fc = nn.Linear(hidden_dim, output_dim)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x shape: (batch_size, seq_len, input_dim)
-        gru_out, _ = self.gru(x)
-        # Take output of last time step
-        last_step = gru_out[:, -1, :]
-        activated = self.relu(last_step)
-        out = self.fc(activated)
-        return out
+try:
+    import torch
+    import torch.nn as nn
+    TORCH_AVAILABLE = True
+except ImportError:
+    torch = None
+    nn = None
+    TORCH_AVAILABLE = False
 
 
-def export_model_to_torchscript(
-    model: nn.Module,
-    output_path: str = "model/saved_models/GRU_Model_24.pt",
-    seq_len: int = 24,
-    input_dim: int = 1
-) -> str:
-    """
-    Exports trained PyTorch model to TorchScript JIT for fast standalone CPU inference
-    with zero external DLL dependencies.
-    """
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    model.eval()
-    scripted_model = torch.jit.script(model)
-    torch.jit.save(scripted_model, output_path)
-    print(f"Model successfully saved as TorchScript JIT -> {output_path}")
-    return output_path
+if TORCH_AVAILABLE:
+    class GRUWorkloadPredictor(nn.Module):
+        """
+        GRU neural network model for Kubernetes CPU load forecasting.
+        Architecture:
+          Input (Batch, 24, 1) -> GRU (50 units) -> ReLU -> Linear(50, 1) -> Output (Batch, 1)
+        """
+        def __init__(self, input_dim: int = 1, hidden_dim: int = 50, output_dim: int = 1):
+            super(GRUWorkloadPredictor, self).__init__()
+            self.input_dim = input_dim
+            self.hidden_dim = hidden_dim
+            self.output_dim = output_dim
+            self.gru = nn.GRU(
+                input_size=input_dim,
+                hidden_size=hidden_dim,
+                num_layers=1,
+                batch_first=True
+            )
+            self.relu = nn.ReLU()
+            self.fc = nn.Linear(hidden_dim, output_dim)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            # x shape: (batch_size, seq_len, input_dim)
+            gru_out, _ = self.gru(x)
+            # Take output of last time step
+            last_step = gru_out[:, -1, :]
+            activated = self.relu(last_step)
+            out = self.fc(activated)
+            return out
+
+
+    def export_model_to_torchscript(
+        model: nn.Module,
+        output_path: str = "model/saved_models/GRU_Model_24.pt",
+        seq_len: int = 24,
+        input_dim: int = 1
+    ) -> str:
+        """
+        Exports trained PyTorch model to TorchScript JIT for fast standalone CPU inference
+        with zero external DLL dependencies.
+        """
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        model.eval()
+        scripted_model = torch.jit.script(model)
+        torch.jit.save(scripted_model, output_path)
+        print(f"Model successfully saved as TorchScript JIT -> {output_path}")
+        return output_path
+else:
+    class GRUWorkloadPredictor:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("PyTorch is not installed in this environment. Use ONNX runtime instead.")
+
+    def export_model_to_torchscript(*args, **kwargs):
+        raise ImportError("PyTorch is not installed in this environment.")
+
 
 
 def export_model_to_onnx(

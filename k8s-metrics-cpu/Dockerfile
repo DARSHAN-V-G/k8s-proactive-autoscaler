@@ -3,8 +3,8 @@
 
 FROM custompodautoscaler/python:latest
 
-# Install CPU-only PyTorch and NumPy using --extra-index-url
-RUN pip install --no-cache-dir torch numpy --extra-index-url https://download.pytorch.org/whl/cpu
+# Install lightweight ONNX Runtime and NumPy (< 40 MB total)
+RUN pip install --no-cache-dir onnxruntime numpy
 
 # Copy CPA configuration
 COPY config.yaml /config.yaml
@@ -15,9 +15,9 @@ COPY metric.py /metric.py
 COPY evaluate.py /evaluate.py
 COPY db.py /db.py
 
-# Copy pre-trained GRU model & fitted scaler bounds
+# Copy pre-trained GRU models & fitted scaler bounds
 COPY saved_models /saved_models
-COPY saved_models/GRU_Model_24.pt /GRU_Model_24.pt
+COPY saved_models/GRU_Model_24.onnx /GRU_Model_24.onnx
 COPY saved_models/scaler.json /scaler.json
 
 # Copy model helper package

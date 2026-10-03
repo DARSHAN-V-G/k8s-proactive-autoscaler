@@ -63,4 +63,4 @@ def test_cpa_and_hpa_target_references():
         assert hpa["kind"] == "HorizontalPodAutoscaler"
         assert hpa["spec"]["scaleTargetRef"]["name"] == "php-hpa"
         assert hpa["spec"]["minReplicas"] == 1
-        assert hpa["spec"]["maxReplicas"] == 20
+        assert hpa["spec"]["maxReplicas"] == 30

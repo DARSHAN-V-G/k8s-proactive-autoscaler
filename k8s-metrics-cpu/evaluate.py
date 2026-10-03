@@ -45,10 +45,10 @@ def get_model_and_scaler_paths() -> tuple:
         sc_candidate = os.path.join(d, "scaler.json")
 
         if model_path is None:
-            if os.path.exists(pt_candidate):
-                model_path = pt_candidate
-            elif os.path.exists(onnx_candidate):
+            if os.path.exists(onnx_candidate):
                 model_path = onnx_candidate
+            elif os.path.exists(pt_candidate):
+                model_path = pt_candidate
 
         if scaler_path is None and os.path.exists(sc_candidate):
             scaler_path = sc_candidate
@@ -149,18 +149,15 @@ def evaluate_scaling(
             # Convert to percentage scale
             pre_u_pct = pre_u_norm * 100.0
             
-            # If current per-pod average exceeds 100% (e.g. pod limit >> request under spike),
-            # propagate the load multiplier
-            if avg_u > 100.0:
-                last_val = max(0.01, seq_normalized[-1])
-                trend_ratio = max(0.5, min(2.0, pre_u_norm / last_val))
-                pre_u = avg_u * trend_ratio
-            else:
-                pre_u = pre_u_pct
+            last_val = max(0.01, seq_normalized[-1])
+            trend_ratio = max(0.5, min(2.5, pre_u_norm / last_val))
+            pre_u = max(pre_u_pct, avg_u * trend_ratio)
             
-            # Proactive replica calculation (Formula 1 from paper using Pre_u)
-            tar_r = math.ceil(cur_r * (pre_u / tar_ut))
-            decision_mode = "proactive_gru"
+            # Hybrid Proactive-Reactive calculation (Paper hypothesis: combines proactive & reactive)
+            tar_r_proactive = math.ceil(cur_r * (pre_u / tar_ut))
+            tar_r_reactive = math.ceil(cur_r * (avg_u / tar_ut)) if avg_u > 0 else cur_r
+            tar_r = max(tar_r_proactive, tar_r_reactive)
+            decision_mode = "proactive_gru" if tar_r_proactive >= tar_r_reactive else "reactive_safety"
         except Exception as e:
             # On prediction error, fall back gracefully
             tar_r = 0
@@ -168,7 +165,6 @@ def evaluate_scaling(
 
     # Step 2: Fallback to reactive HPA if history < 24 or predicted Tar_r == 0 (Figure 20)
     if tar_r == 0 or seq_len < window_size:
-        # Standard reactive HPA calculation (Formula 1 from paper using Avg_u)
         if avg_u > 0:
             tar_r = math.ceil(cur_r * (avg_u / tar_ut))
         else:

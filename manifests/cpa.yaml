@@ -6,7 +6,7 @@ metadata:
   name: k8s-metrics-cpu
 spec:
   minReplicas: 1
-  maxReplicas: 20
+  maxReplicas: 30
   template:
     spec:
       containers:
@@ -31,5 +31,5 @@ spec:
     - name: minReplicas
       value: "1"
     - name: maxReplicas
-      value: "20"
+      value: "30"
 

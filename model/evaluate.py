@@ -75,22 +75,13 @@ def evaluate_all_models(
     results = []
 
     # 1. GRU (50 units) - Proposed
-    print("Evaluating GRU Model (50 units - Proposed)...")
-    pretrained_pt = "model/saved_models/GRU_Model_24.pt"
-    scaler_path = "model/saved_models/scaler.json"
-    if os.path.exists(pretrained_pt) and os.path.exists(scaler_path):
-        print(f"Loading pre-trained production model: {pretrained_pt}")
-        gru_engine = GRUInferenceEngine(pretrained_pt, scaler_path=scaler_path)
-        gru_train_time = 0.75  # Paper benchmark ~0.75s
-    else:
-        gru = GRUWorkloadPredictor(hidden_dim=50)
-        gru_train_time = train_pytorch_model(gru, train_loader, epochs=epochs)
-        pt_path = "model/saved_models/temp_eval_gru.pt"
-        export_model_to_torchscript(gru, output_path=pt_path, seq_len=window_size)
-        gru_engine = GRUInferenceEngine(pt_path)
-
+    print("Training GRU Model (50 units - Proposed)...")
+    gru = GRUWorkloadPredictor(hidden_dim=50)
+    gru_train_time = train_pytorch_model(gru, train_loader, epochs=epochs)
+    gru.eval()
     t0 = time.time()
-    gru_preds = [gru_engine.predict(seq) for seq in X_test_eval]
+    with torch.no_grad():
+        gru_preds = gru(torch.from_numpy(X_test_eval)).numpy().flatten()
     gru_infer_time_ms = ((time.time() - t0) / len(X_test_eval)) * 1000.0
 
     gru_mse = mean_squared_error(y_test_eval, gru_preds)
@@ -189,4 +180,12 @@ def evaluate_all_models(
 
 
 if __name__ == "__main__":
-    evaluate_all_models()
+    import argparse
+    parser = argparse.ArgumentParser(description="Evaluate forecasting baselines vs GRU")
+    default_ds = "data/borg_processed_timeseries.csv" if os.path.exists("data/borg_processed_timeseries.csv") else "data/sample_cluster_data.csv"
+    parser.add_argument("--dataset", type=str, default=default_ds, help="Path to evaluation dataset")
+    parser.add_argument("--window-size", type=int, default=24, help="Sliding window size (default: 24)")
+    parser.add_argument("--epochs", type=int, default=20, help="Training epochs for baselines (default: 20)")
+    args = parser.parse_args()
+
+    evaluate_all_models(dataset_path=args.dataset, window_size=args.window_size, epochs=args.epochs)

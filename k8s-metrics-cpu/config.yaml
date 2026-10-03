@@ -20,5 +20,5 @@ kubernetesMetricSpecs:
         type: Utilization
 requireKubernetesMetrics: true
 minReplicas: 1
-maxReplicas: 20
+maxReplicas: 30
 

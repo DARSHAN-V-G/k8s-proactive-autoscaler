@@ -1,0 +1,73 @@
+# Automated Traffic Pattern Generator for Kubernetes Autoscaler Benchmarking
+# Automatically executes cyclical traffic waves without manual intervention:
+# 1. Low Base Load (2 minutes) -> Scalers at ~1 replica
+# 2. Flash Crowd / Traffic Surge (2.5 minutes) -> CPA pre-scales, HPA lags
+# 3. Cooldown Window (2 minutes) -> Scalers return smoothly to 1 replica
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-pattern-generator
+  labels:
+    app: traffic-pattern-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-pattern-generator
+  template:
+    metadata:
+      labels:
+        app: traffic-pattern-generator
+    spec:
+      containers:
+        - name: traffic-bot
+          image: busybox:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Starting Autonomous Cloud Traffic Pattern Generator..."
+              cycle=1
+              while true; do
+                echo "=========================================================="
+                echo "[$(date '+%T')] CYCLE #$cycle: PHASE 1 - Low Base Load (90 seconds)"
+                echo "=========================================================="
+                touch /tmp/phase1
+                for i in $(seq 1 2); do
+                  ( while [ -f /tmp/phase1 ]; do
+                      wget -q -O- http://php-cpa:80 > /dev/null 2>&1
+                      wget -q -O- http://php-hpa:80 > /dev/null 2>&1
+                      usleep 40000
+                    done ) &
+                done
+                sleep 90
+                rm -f /tmp/phase1
+                sleep 5
+
+                echo "=========================================================="
+                echo "[$(date '+%T')] CYCLE #$cycle: PHASE 2 - TRAFFIC SURGE / FLASH CROWD (90 seconds)"
+                echo "=========================================================="
+                touch /tmp/surge
+                for i in $(seq 1 12); do
+                  ( while [ -f /tmp/surge ]; do
+                      wget -q -O- http://php-cpa:80 > /dev/null 2>&1
+                      wget -q -O- http://php-hpa:80 > /dev/null 2>&1
+                      usleep 3000
+                    done ) &
+                done
+                sleep 90
+                rm -f /tmp/surge
+                sleep 5
+
+                echo "=========================================================="
+                echo "[$(date '+%T')] CYCLE #$cycle: PHASE 3 - Traffic Subsiding (90 seconds Cooldown)"
+                echo "=========================================================="
+                sleep 90
+                cycle=$((cycle + 1))
+              done
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi

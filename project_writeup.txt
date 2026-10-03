@@ -1,0 +1,105 @@
+================================================================================
+PROJECT WRITE-UP: CLOUD COMPUTING
+================================================================================
+
+Project Title:
+Intelligent Proactive Pod Autoscaling in Kubernetes Using GRU
+
+--------------------------------------------------------------------------------
+Problem Statement:
+--------------------------------------------------------------------------------
+Container orchestration systems rely heavily on autoscaling to manage dynamic 
+client traffic and optimize cloud infrastructure costs. The default autoscaling 
+mechanism in Kubernetes—the Horizontal Pod Autoscaler (HPA)—is strictly reactive: 
+it calculates scaling decisions only after resource thresholds (such as CPU or 
+memory utilization) have already been exceeded:
+
+    desiredReplicas = ceil( currentReplicas * (currentMetricValue / desiredMetricValue) )
+
+When sudden bursts, flash crowds, or rapid traffic fluctuations occur, reactive 
+HPA suffers from an inherent 50–60 second delay before triggering replica expansion. 
+This provisioning lag causes severe Quality of Service (QoS) degradation, elevated 
+p99 tail latencies, and dropped client requests. Furthermore, default cooldown 
+mechanisms cause prolonged over-provisioning when traffic subsides, leading to 
+unnecessary cloud infrastructure costs.
+
+--------------------------------------------------------------------------------
+Objective of the Project:
+--------------------------------------------------------------------------------
+1. Overcome Reactive Latency: Design, train, and deploy an intelligent autoscaler 
+   that forecasts upcoming workload patterns and scales pods in advance before 
+   performance degradation occurs.
+2. Empirical Model Selection: Benchmark traditional statistical forecasting 
+   (ARIMA) against deep learning architectures (LSTM, BiLSTM, GRU) using multi-day 
+   cluster traces (Google Borg dataset) to select the optimal model balancing 
+   prediction accuracy and inference latency.
+3. Cloud-Native Deployment: Implement the solution as a Custom Pod Autoscaler 
+   (CPA) using Custom Resource Definitions (CRDs) and deploy it on a managed 
+   cloud Kubernetes platform alongside native HPA.
+4. Comparative Validation: Quantitatively evaluate proactive CPA versus reactive 
+   HPA under synthetic bursty and diurnal traffic using automated load generators 
+   and real-time Prometheus observability metrics.
+
+--------------------------------------------------------------------------------
+Cloud Services Used:
+--------------------------------------------------------------------------------
+1. Google Kubernetes Engine (GKE):
+   Provisions and manages the Kubernetes cluster hosting the autoscaler operator, 
+   microservices, and metrics server.
+
+2. Google Compute Engine (GCE):
+   Supplies scalable virtual machine worker nodes to execute containerized 
+   workloads under allocated resource quotas.
+
+3. Google Artifact Registry (GAR):
+   Stores and manages container images for custom autoscaler components and 
+   application deployments.
+
+4. Google Cloud Monitoring:
+   Tracks real-time CPU utilization, pod replica counts, and performance metrics 
+   to visualize autoscaling behavior.
+
+5. Google Cloud Shell & Cloud SDK:
+   Enables automated, script-driven cluster deployment and remote administrative 
+   management.
+
+--------------------------------------------------------------------------------
+Brief Description of the Proposed Solution:
+--------------------------------------------------------------------------------
+The proposed system integrates time-series machine learning into the Kubernetes 
+control loop via the Custom Pod Autoscaler (CPA) framework, executed in two 
+decoupled stages:
+
+1. Metric Gatherer Component:
+   Interacts periodically with the Kubernetes Resource Metrics API to extract the 
+   current pod replica count (Cur_r) and CPU usage, compute cluster-wide average 
+   utilization (Avg_u), and maintain a rolling historical time-series buffer (Seq[]).
+
+2. Evaluator and Prediction Engine:
+   - Utilizes a 24-Step Gated Recurrent Unit (GRU) neural network (50 hidden units, 
+     ReLU activation, trained with Adam optimizer on Google Borg traces) exported 
+     to an optimized open neural format for sub-millisecond CPU-based inference.
+   - When history reaches 24 steps, the engine predicts future CPU utilization 
+     (Pre_u) and proactively calculates required replicas:
+       Tar_r = ceil( Cur_r * (Pre_u / Tar_ut) )   [Target threshold Tar_ut = 50%]
+   - Hybrid Fallback & Stability: If historical steps are insufficient (Seq_len < 24) 
+     or prediction evaluates to 0, it safely falls back to standard HPA logic. 
+     A 60-second stabilization cooldown window is enforced to eliminate pod flapping 
+     and excessive churn.
+
+--------------------------------------------------------------------------------
+Expected Outcome:
+--------------------------------------------------------------------------------
+1. Zero Scaling Lag: Proactive pre-scaling eliminates the 50–60 second cold-start 
+   delay experienced by default HPA, sustaining application SLA and QoS during 
+   sharp traffic surges.
+2. Superior Prediction Metrics: The 24-step GRU model achieves optimal prediction 
+   performance compared to baselines (lowest MSE of 0.00194, lowest MAE of 0.03057, 
+   and ultra-low inference time of <15 ms per step vs. ARIMA's 4.14 seconds).
+3. Cost & Resource Optimization: Prevents over-provisioning and idle resource 
+   waste during off-peak periods by scaling down accurately without compromising 
+   system availability.
+4. Complete Live Observability: End-to-end telemetry deployed on a managed 
+   cloud Kubernetes cluster demonstrating proactive replica curves adjusting ahead 
+   of demand spikes on monitoring dashboards.
+================================================================================

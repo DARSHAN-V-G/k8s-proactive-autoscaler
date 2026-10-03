@@ -10,7 +10,7 @@ spec:
     kind: Deployment
     name: php-hpa
   minReplicas: 1
-  maxReplicas: 20
+  maxReplicas: 30
   metrics:
     - type: Resource
       resource:

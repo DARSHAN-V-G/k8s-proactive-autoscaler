@@ -64,3 +64,9 @@ ehthumbs.db
 
 # Jupyter Notebook Checkpoints
 .ipynb_checkpoints/
+
+# Large Datasets (> 100MB GitHub limit)
+data/borg_traces_data.csv
+
+# Scratch directory
+scratch/
