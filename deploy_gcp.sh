@@ -149,6 +149,9 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes/kube-state-metrics
 # Deploy Prometheus
 kubectl apply -f manifests/monitoring/prometheus.yaml
 
+# Deploy Real-Time Latency Exporter
+kubectl apply -f manifests/monitoring/latency-exporter.yaml
+
 # Deploy Autonomous Traffic Pattern Bot
 kubectl apply -f manifests/traffic-pattern-generator.yaml
 
@@ -163,9 +166,10 @@ echo ""
 echo -e "${CYAN}To watch real-time autoscaling in terminal:${NC}"
 echo -e "  ${YELLOW}kubectl get pods,hpa,cpa,deployment -w${NC}"
 echo ""
-echo -e "${CYAN}To view Prometheus live comparison graph:${NC}"
+echo -e "${CYAN}To view Prometheus live comparison graphs:${NC}"
 echo -e "  1. Run port-forward in a separate terminal:"
 echo -e "     ${YELLOW}kubectl port-forward svc/prometheus 9090:9090${NC}"
 echo -e "  2. Open in browser: ${YELLOW}http://localhost:9090${NC} (or use GCP Web Preview on port 9090)"
-echo -e "  3. Query: ${YELLOW}kube_deployment_status_replicas{deployment=~\"php-.*\"}${NC}"
+echo -e "  3. Query 1 (Replicas):     ${YELLOW}kube_deployment_status_replicas{deployment=~\"php-.*\"}${NC}"
+echo -e "  4. Query 2 (Response Time): ${YELLOW}http_response_time_seconds${NC}"
 echo -e "${BLUE}====================================================================${NC}"

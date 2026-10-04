@@ -1,0 +1,101 @@
+# Real-Time HTTP Latency Exporter for Proactive CPA vs Reactive HPA
+# Continuously measures end-to-end HTTP response times and exposes Prometheus metrics on port 9100
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: latency-exporter
+  labels:
+    app: latency-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: latency-exporter
+  template:
+    metadata:
+      labels:
+        app: latency-exporter
+    spec:
+      containers:
+        - name: exporter
+          image: python:3.9-slim
+          command: ["python3", "-u", "-c"]
+          args:
+            - |
+              import http.server
+              import threading
+              import time
+              import urllib.request
+
+              latency_cpa = 0.040
+              latency_hpa = 0.040
+
+              def probe():
+                  global latency_cpa, latency_hpa
+                  while True:
+                      # Probe php-cpa (Proactive)
+                      try:
+                          t0 = time.time()
+                          with urllib.request.urlopen("http://php-cpa:80", timeout=6) as res:
+                              res.read()
+                          latency_cpa = round(time.time() - t0, 4)
+                      except Exception:
+                          latency_cpa = 2.0  # Timeout penalty
+
+                      # Probe php-hpa (Reactive)
+                      try:
+                          t0 = time.time()
+                          with urllib.request.urlopen("http://php-hpa:80", timeout=6) as res:
+                              res.read()
+                          latency_hpa = round(time.time() - t0, 4)
+                      except Exception:
+                          latency_hpa = 2.0  # Timeout penalty
+
+                      time.sleep(2)
+
+              class MetricsHandler(http.server.BaseHTTPRequestHandler):
+                  def do_GET(self):
+                      if self.path.startswith("/metrics"):
+                          body = (
+                              "# HELP http_response_time_seconds Real-time HTTP response time in seconds\n"
+                              "# TYPE http_response_time_seconds gauge\n"
+                              f'http_response_time_seconds{{service="php-cpa"}} {latency_cpa}\n'
+                              f'http_response_time_seconds{{service="php-hpa"}} {latency_hpa}\n'
+                          )
+                          self.send_response(200)
+                          self.send_header("Content-Type", "text/plain")
+                          self.end_headers()
+                          self.wfile.write(body.encode("utf-8"))
+                      else:
+                          self.send_response(404)
+                          self.end_headers()
+
+                  def log_message(self, format, *args):
+                      pass
+
+              threading.Thread(target=probe, daemon=True).start()
+              print("Latency Exporter running on :9100/metrics...")
+              server = http.server.HTTPServer(("0.0.0.0", 9100), MetricsHandler)
+              server.serve_forever()
+          ports:
+            - containerPort: 9100
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: latency-exporter
+  labels:
+    app: latency-exporter
+spec:
+  ports:
+    - port: 9100
+      targetPort: 9100
+  selector:
+    app: latency-exporter
